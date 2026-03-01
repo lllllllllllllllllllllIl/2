@@ -211,7 +211,7 @@ local DefenseTab = Window:CreateTab("Defense", nil) -- Title, Image
 local DefenseSection = DefenseTab:CreateSection("Guarding") -- Changed 'Tab' to 'MainTab'
 
 -- =========================================
--- GLOBAL VALUES (CONTROLLED BY RAYFIELD)
+-- GLOBAL VALUES
 -- =========================================
 
 _G.AutoGuardV1 = false
@@ -225,64 +225,6 @@ _G.LegitSmoothness = 0.15
 
 
 -- =========================================
--- RAYFIELD CONTROLS (DEFENSE TAB)
--- =========================================
-
-DefenseTab:CreateToggle({
-	Name = "Auto Guard V1 / Toggle: F",
-	CurrentValue = false,
-	Keybind = {Enabled = true, Key = Enum.KeyCode.F},
-	Callback = function(v) _G.AutoGuardV1 = v end
-})
-
-DefenseTab:CreateSlider({
-	Name = "Guard Distance V1",
-	Range = {1,20},
-	Increment = 1,
-	CurrentValue = 5,
-	Callback = function(v) _G.GuardDistanceV1 = v end
-})
-
-DefenseTab:CreateToggle({
-	Name = "Auto Guard V2 / Toggle: F",
-	CurrentValue = false,
-	Keybind = {Enabled = true, Key = Enum.KeyCode.F},
-	Callback = function(v) _G.AutoGuardV2 = v end
-})
-
-DefenseTab:CreateSlider({
-	Name = "Guard Distance V2",
-	Range = {1,20},
-	Increment = 1,
-	CurrentValue = 5,
-	Callback = function(v) _G.GuardDistanceV2 = v end
-})
-
-DefenseTab:CreateToggle({
-	Name = "Legit Auto Guard Toggle: F",
-	CurrentValue = false,
-	Keybind = {Enabled = true, Key = Enum.KeyCode.F},
-	Callback = function(v) _G.LegitAutoGuard = v end
-})
-
-DefenseTab:CreateSlider({
-	Name = "Guard Distance",
-	Range = {1,20},
-	Increment = 1,
-	CurrentValue = 5,
-	Callback = function(v) _G.LegitGuardDistance = v end
-})
-
-DefenseTab:CreateSlider({
-	Name = "Smoothness",
-	Range = {0,1},
-	Increment = 0.01,
-	CurrentValue = 0.15,
-	Callback = function(v) _G.LegitSmoothness = v end
-})
-
-
--- =========================================
 -- SERVICES
 -- =========================================
 
@@ -292,10 +234,6 @@ local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local Character, HRP, Humanoid
-
-local CurrentTargetV1
-local CurrentTargetV2
-local CurrentTargetLegit
 
 local function UpdateCharacter()
 	Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -322,26 +260,35 @@ end
 
 
 -- =========================================
--- MOBILE GUIs (3 SEPARATE BUTTONS)
+-- MOBILE GUI CREATION
 -- =========================================
 
 local function CreateCircle(name, posX)
-	local gui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+	local gui = Instance.new("ScreenGui")
 	gui.Name = name
 	gui.ResetOnSpawn = false
+	gui.Enabled = false
+	gui.Parent = LocalPlayer.PlayerGui
 
-	local btn = Instance.new("TextButton", gui)
-	btn.Size = UDim2.new(0,100,0,100)
-	btn.Position = UDim2.new(0,posX,0,50)
-	btn.BackgroundTransparency = 1
+	local btn = Instance.new("TextButton")
+	btn.Parent = gui
+	btn.Size = UDim2.new(0,95,0,95)
+	btn.Position = UDim2.new(0,posX,0,60)
+	btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	btn.BackgroundTransparency = 0.1
 	btn.TextScaled = true
 	btn.Font = Enum.Font.GothamBold
-	btn.TextColor3 = Color3.new(1,1,1)
+	btn.TextColor3 = Color3.fromRGB(255,255,255)
+	btn.TextStrokeTransparency = 0.85
+	btn.TextWrapped = true
 
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(1,0)
+	local corner = Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(1,0)
+
 	local stroke = Instance.new("UIStroke", btn)
 	stroke.Thickness = 2
-	stroke.Color = Color3.new(1,1,1)
+	stroke.Color = Color3.fromRGB(255,255,255)
+	stroke.Transparency = 0.2
 
 	local dragging = false
 	local dragStart, startPos
@@ -359,8 +306,12 @@ local function CreateCircle(name, posX)
 		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
 		or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta = input.Position - dragStart
-			btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-				startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			btn.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
 		end
 	end)
 
@@ -371,13 +322,89 @@ local function CreateCircle(name, posX)
 		end
 	end)
 
-	return btn
+	return gui, btn
 end
 
-local BtnV1 = CreateCircle("AGV1_GUI", 40)
-local BtnV2 = CreateCircle("AGV2_GUI", 170)
-local BtnLegit = CreateCircle("AGL_GUI", 300)
+local GuiV1, BtnV1 = CreateCircle("AGV1_GUI", 40)
+local GuiV2, BtnV2 = CreateCircle("AGV2_GUI", 170)
+local GuiLegit, BtnLegit = CreateCircle("AGL_GUI", 300)
 
+
+-- =========================================
+-- RAYFIELD CONTROLS (DEFENSE TAB)
+-- =========================================
+
+DefenseTab:CreateToggle({
+	Name = "Auto Guard V1 / Toggle: F",
+	CurrentValue = false,
+	Keybind = {Enabled = true, Key = Enum.KeyCode.F},
+	Callback = function(v)
+		GuiV1.Enabled = v
+	end
+})
+
+DefenseTab:CreateSlider({
+	Name = "Guard Distance V1",
+	Range = {1,20},
+	Increment = 1,
+	CurrentValue = 5,
+	Callback = function(v)
+		_G.GuardDistanceV1 = v
+	end
+})
+
+DefenseTab:CreateToggle({
+	Name = "Auto Guard V2 / Toggle: F",
+	CurrentValue = false,
+	Keybind = {Enabled = true, Key = Enum.KeyCode.F},
+	Callback = function(v)
+		GuiV2.Enabled = v
+	end
+})
+
+DefenseTab:CreateSlider({
+	Name = "Guard Distance V2",
+	Range = {1,20},
+	Increment = 1,
+	CurrentValue = 5,
+	Callback = function(v)
+		_G.GuardDistanceV2 = v
+	end
+})
+
+DefenseTab:CreateToggle({
+	Name = "Legit Auto Guard / Toggle: F",
+	CurrentValue = false,
+	Keybind = {Enabled = true, Key = Enum.KeyCode.F},
+	Callback = function(v)
+		GuiLegit.Enabled = v
+	end
+})
+
+DefenseTab:CreateSlider({
+	Name = "Guard Distance",
+	Range = {1,20},
+	Increment = 1,
+	CurrentValue = 5,
+	Callback = function(v)
+		_G.LegitGuardDistance = v
+	end
+})
+
+DefenseTab:CreateSlider({
+	Name = "Smoothness",
+	Range = {0,1},
+	Increment = 0.01,
+	CurrentValue = 0.15,
+	Callback = function(v)
+		_G.LegitSmoothness = v
+	end
+})
+
+
+-- =========================================
+-- BUTTON CLICK BEHAVIOR
+-- =========================================
 
 BtnV1.MouseButton1Click:Connect(function()
 	_G.AutoGuardV1 = not _G.AutoGuardV1
@@ -396,46 +423,49 @@ end)
 -- MAIN LOOP
 -- =========================================
 
+local CurrentTargetV1
+local CurrentTargetV2
+local CurrentTargetLegit
 local lastMoveDir = Vector3.zero
 local currentSpeed = 0
 
-RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function()
 
 	if not Character or not HRP or not Humanoid then return end
 
-	-- ================= V1 =================
+	-- V1
 	if _G.AutoGuardV1 then
 		CurrentTargetV1 = CurrentTargetV1 or GetClosestPlayer()
 		if CurrentTargetV1 and CurrentTargetV1.Character then
-			local targetHRP = CurrentTargetV1.Character:FindFirstChild("HumanoidRootPart")
-			if targetHRP then
-				local pos = targetHRP.Position + targetHRP.CFrame.LookVector * _G.GuardDistanceV1
+			local t = CurrentTargetV1.Character:FindFirstChild("HumanoidRootPart")
+			if t then
+				local pos = t.Position + t.CFrame.LookVector * _G.GuardDistanceV1
 				Humanoid:Move((pos - HRP.Position).Unit, false)
 			end
 		end
 	end
 
-	-- ================= V2 =================
+	-- V2
 	if _G.AutoGuardV2 then
 		CurrentTargetV2 = CurrentTargetV2 or GetClosestPlayer()
 		if CurrentTargetV2 and CurrentTargetV2.Character then
-			local targetHRP = CurrentTargetV2.Character:FindFirstChild("HumanoidRootPart")
-			if targetHRP then
-				local predicted = targetHRP.Position + targetHRP.Velocity * 0.12
-				local pos = predicted + targetHRP.CFrame.LookVector * _G.GuardDistanceV2
+			local t = CurrentTargetV2.Character:FindFirstChild("HumanoidRootPart")
+			if t then
+				local predicted = t.Position + t.Velocity * 0.12
+				local pos = predicted + t.CFrame.LookVector * _G.GuardDistanceV2
 				Humanoid:Move((pos - HRP.Position).Unit, false)
 			end
 		end
 	end
 
-	-- ================= LEGIT =================
+	-- Legit
 	if _G.LegitAutoGuard then
 		CurrentTargetLegit = CurrentTargetLegit or GetClosestPlayer()
 		if CurrentTargetLegit and CurrentTargetLegit.Character then
-			local targetHRP = CurrentTargetLegit.Character:FindFirstChild("HumanoidRootPart")
-			if targetHRP then
-				local predicted = targetHRP.Position + targetHRP.Velocity * 0.12
-				local pos = predicted + targetHRP.CFrame.LookVector * _G.LegitGuardDistance
+			local t = CurrentTargetLegit.Character:FindFirstChild("HumanoidRootPart")
+			if t then
+				local predicted = t.Position + t.Velocity * 0.12
+				local pos = predicted + t.CFrame.LookVector * _G.LegitGuardDistance
 
 				local dir = (pos - HRP.Position)
 				if dir.Magnitude > 0.1 then
@@ -448,7 +478,6 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	-- Button text updates
 	BtnV1.Text = "V1\n" .. (_G.AutoGuardV1 and "ON" or "OFF")
 	BtnV2.Text = "V2\n" .. (_G.AutoGuardV2 and "ON" or "OFF")
 	BtnLegit.Text = "Legit\n" .. (_G.LegitAutoGuard and "ON" or "OFF")
